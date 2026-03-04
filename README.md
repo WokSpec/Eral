@@ -1,67 +1,105 @@
-# Eral — WokSpec AI
+# Eral
 
-Eral is the intelligent AI layer of WokSpec. It integrates across every WokSpec product — WokSite, WokAPI, WokGen, WokPost, Chopsticks, and the browser extension — providing conversational AI, content generation, and content analysis.
+AI layer for WokSpec. Ships as a Cloudflare Worker API, an embeddable widget, and a browser extension.
 
-## Architecture
+**Live:** [eral.wokspec.org](https://eral.wokspec.org) · **Source available:** [FSL-1.1-MIT](./LICENSE)
 
-Eral is a **Cloudflare Worker** built with [Hono](https://hono.dev), following the same patterns as WokAPI.  
-It shares the WokSpec JWT secret for auth, KV namespaces for rate limiting and sessions, and uses:
+---
 
-- **Primary AI provider:** OpenAI GPT-4o (set `OPENAI_API_KEY`)
-- **Fallback:** Cloudflare Workers AI (Llama 3.1 8B — free, edge-native)
-- **Future:** Eral's own fine-tuned model (swap in `src/lib/openai.ts`)
+## What it is
 
-## Endpoints
+Eral is the AI backbone across every WokSpec product. The same model and memory layer powers the chat widget on wokspec.org, the AI companion in WokGen and Vecto, the news analysis in WokPost, and the browser extension.
 
-All endpoints require a valid WokSpec JWT (`Authorization: Bearer <token>`).
+```
+apps/
+  api/        # Cloudflare Worker — Hono, chat/generate/analyze endpoints
+  extension/  # Browser extension — Plasmo, works in Chrome/Firefox/Edge
+  widget/     # Embeddable React widget — drop into any page
+```
+
+---
+
+## API
+
+All endpoints require `Authorization: Bearer <jwt>` (WokSpec JWT, shared secret).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET`  | `/` | Service info |
 | `GET`  | `/health` | Health check |
-| `GET`  | `/v1/status` | AI provider info + capabilities |
-| `POST` | `/v1/chat` | Conversational AI with persistent memory |
-| `GET`  | `/v1/chat/sessions` | List active sessions |
-| `GET`  | `/v1/chat/:sessionId` | Retrieve session history |
-| `DELETE` | `/v1/chat/:sessionId` | Clear session memory |
-| `POST` | `/v1/generate` | Content generation (posts, code, docs, prompts, etc.) |
-| `POST` | `/v1/analyze` | Content analysis (summarize, review, extract, etc.) |
-| `POST` | `/v1/wokgen/prompt` | Generate optimized WokGen asset prompts |
+| `GET`  | `/v1/status` | Provider info and model variants |
+| `POST` | `/v1/chat` | Chat with persistent session memory |
+| `GET`  | `/v1/chat/sessions` | List sessions |
+| `GET`  | `/v1/chat/:sessionId` | Session history |
+| `DELETE` | `/v1/chat/:sessionId` | Clear session |
+| `POST` | `/v1/generate` | Content generation (posts, code, docs, prompts) |
+| `POST` | `/v1/analyze` | Content analysis (summarize, review, extract) |
 
-## Development
+### AI providers
+
+| Provider | Used for |
+|----------|----------|
+| OpenAI GPT-4o | Default chat and generation |
+| Cloudflare Workers AI (Llama 3.1 8B) | Fallback, edge-native, free tier |
+| Groq (Llama 3.3 70B) | High-speed inference for WokGen/Vecto |
+
+---
+
+## Browser Extension
+
+**Eral Web Extension** — available for Chrome, Firefox, and Edge (Plasmo-based).
+
+Built from `apps/extension/`. The extension:
+- Adds Eral to any webpage via a floating panel
+- Clips selected text to Eral memory
+- Runs research and meeting modes (in development)
 
 ```bash
-# Install dependencies
+cd apps/extension
 npm install
-
-# Start local dev server (port 8788)
-npm run dev
-
-# Type check
-npm run type-check
-
-# Deploy to Cloudflare
-npm run deploy
+npm run dev     # dev mode — loads unpacked in browser
+npm run build   # production build
 ```
 
-## Configuration
+---
 
-Copy `.env.example` and set secrets via:
+## Widget
+
+Drop the Eral widget into any WokSpec product (or external site):
+
+```tsx
+import EralWidget from '@wokspec/eral-widget';
+
+// In your layout
+<EralWidget apiUrl="https://api.wokspec.org/v1/chat" />
+```
+
+---
+
+## API development
 
 ```bash
-wrangler secret put JWT_SECRET      # Required — must match WokAPI
-wrangler secret put OPENAI_API_KEY  # Optional — GPT-4o (best quality)
+cd apps/api
+npm install
+npm run dev       # wrangler dev on :8788
+npm run deploy    # deploy to Cloudflare Workers
 ```
 
-Create a new KV namespace for memory and update `wrangler.toml`:
+### Required secrets
+
+```bash
+wrangler secret put JWT_SECRET       # must match WokAPI
+wrangler secret put OPENAI_API_KEY   # optional — GPT-4o
+```
+
+### Required KV namespace
 
 ```bash
 wrangler kv namespace create KV_MEMORY
+# add the id to wrangler.toml
 ```
 
-## Integration
+---
 
-Eral is accessible from all WokSpec products via `https://eral.wokspec.org`.  
-Internal calls use the shared JWT for authentication.
+## License
 
-WokAPI also exposes AI endpoints at `/v1/ai/*` (ask, generate, analyze) which use the same Eral model selection logic for clients that already call WokAPI.
+Source available under [FSL-1.1-MIT](./LICENSE). Free for personal and non-commercial use. Converts to MIT two years after publication.
